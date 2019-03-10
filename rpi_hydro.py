@@ -2,11 +2,15 @@
 import serial
 import logging
 import threading
+from datetime import datetime	
 from time import sleep
 
 #~10 minute cycle time
 PUMP_ON_TIME = 60*2+30
 PUMP_OFF_TIME = 60*7+30
+#~17 hour light cycle
+LIGHTS_ON_HOUR = 4
+LIGHTS_OFF_HOUR = 21 
 
 
 class Controls:
@@ -15,27 +19,35 @@ class Controls:
 		self.logger = logger
 		self.serialMutex = threading.Lock()
 		self.logger.debug('controls started')
+		#initialize with the lights on so we can track the state a bit easier
+		self.lightsOnFlag = False
+		self.lightsOn()
 
 	def lightsOn(self):
-		with self.serialMutex:
-			#self.outlets.write(b'2+')
-			pass
-		self.logger.info('Lights on')
+		if  not self.lightsOnFlag:
+			with self.serialMutex:
+				self.outlets.write(b'2+')
+				pass
+			self.logger.info('Lights on')
+			self.lightsOnFlag = True
+
 	def ligstOff(self):
-		with self.serialMutex:
-			#self.outlets.write(b'2-')
-			pass
-		self.logger.info('Lights off')
+		if self.lightsOnFlag:
+			with self.serialMutex:
+				self.outlets.write(b'2-')
+				pass
+			self.logger.info('Lights off')
+			self.lightsOnFlag = False
 
 	def pumpOn(self):
 		with self.serialMutex:
-			#self.outlets.write(b'1+')
+			self.outlets.write(b'1+')
 			pass
 		self.logger.info('Pump on')
 
 	def pumpOff(self):
 		with self.serialMutex:
-			#self.outlets.write(b'1-')
+			self.outlets.write(b'1-')
 			pass
 		self.logger.info('Pump off')
 
@@ -45,6 +57,15 @@ def pump(controls):
 		sleep(PUMP_ON_TIME)
 		controls.pumpOff()
 		sleep(PUMP_OFF_TIME)
+
+def lights(controls):
+	while True:
+		hour = datetime.now().hour
+		if hour >= LIGHTS_ON_HOUR and hour < LIGHTS_OFF_HOUR:
+			controls.lightsOn()
+		else:
+			controls.lightsOff()
+		sleep(30)
 
 def main():
 	#setup the logger
@@ -62,7 +83,9 @@ def main():
 	pumpThread.start()
 
 	#create thread to control the lights
-
+	lightsThread = threading.Thread(target=lights, args=(controls,))
+	lightsThread.daemon = True
+	lightsThread.start()
 
 	#let the threads work
 	while True:
