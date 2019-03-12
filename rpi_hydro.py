@@ -31,7 +31,7 @@ class Controls:
 			self.logger.info('Lights on')
 			self.lightsOnFlag = True
 
-	def ligstOff(self):
+	def lightsOff(self):
 		if self.lightsOnFlag:
 			with self.serialMutex:
 				self.outlets.write(b'2-')
@@ -69,7 +69,7 @@ def lights(controls):
 
 def main():
 	#setup the logger
-	logging.basicConfig(filename="test.log", 
+	logging.basicConfig(filename="events.log", 
 	                    format='%(asctime)s: %(levelname)s: %(message)s', 
 	                    filemode='a') 
 	logger=logging.getLogger() 
@@ -89,7 +89,7 @@ def main():
 
 	#let the threads work
 	while True:
-		sleep(1000)
+		sleep(1000000)
 
 
 if __name__ == '__main__':
