@@ -1,0 +1,12 @@
+[Unit]
+Description=hydroponics-controller
+After=multi-user.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/rpi-hydro
+ExecStart=/usr/bin/python3 /home/pi/rpi-hydro/rpi_hydro.py
+
+[Install]
+WantedBy=multi-user.target

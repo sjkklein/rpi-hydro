@@ -11,10 +11,10 @@ import requests
 
 #~10 minute cycle time
 PUMP_ON_TIME = 60*2+30
-PUMP_OFF_TIME = 60*7+30
+PUMP_OFF_TIME = 60*17+30
 #~17 hour light cycle
-LIGHTS_ON_HOUR = 4
-LIGHTS_OFF_HOUR = 21 
+LIGHTS_ON_HOUR = 3
+LIGHTS_OFF_HOUR = 20 
 
 FLOAT_SWITCH_PIN = 26
 
@@ -121,7 +121,7 @@ def alarm(logger):
 
 def main():
 	#setup the logger
-	logging.basicConfig(filename="events.log", 
+	logging.basicConfig(filename="/home/pi/rpi-hydro/events.log", 
 	                    format='%(asctime)s: %(levelname)s: %(message)s', 
 	                    filemode='a') 
 	logger=logging.getLogger() 
