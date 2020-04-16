@@ -7,16 +7,20 @@ from time import sleep
 import RPi.GPIO as GPIO
 from repeat_timer import RepeatedTimer
 import requests
-
+import ph
+import mcpread
 
 #~10 minute cycle time
-PUMP_ON_TIME = 60*2+30
-PUMP_OFF_TIME = 60*17+30
+PUMP_ON_TIME = 60*4
+PUMP_OFF_TIME = 60*56 + 60*60
 #~17 hour light cycle
-LIGHTS_ON_HOUR = 3
-LIGHTS_OFF_HOUR = 20 
+LIGHTS_ON_HOUR = 4
+LIGHTS_OFF_HOUR = 22 
 
 FLOAT_SWITCH_PIN = 26
+LIGHT_PIN = 2	
+PUMP_PIN = 3
+FAN_PWM_PIN = 19
 
 def send_notification(notification):
 	payload = {
@@ -32,6 +36,8 @@ def send_notification(notification):
 
 class Controls:
 	def __init__(self, logger):
+		GPIO.setup(LIGHT_PIN, GPIO.OUT)
+		GPIO.setup(PUMP_PIN, GPIO.OUT)
 		self.outlets = serial.Serial("/dev/serial0", baudrate=115200, timeout=3.0)
 		self.logger = logger
 		self.serialMutex = threading.Lock()
@@ -42,30 +48,22 @@ class Controls:
 
 	def lightsOn(self):
 		if  not self.lightsOnFlag:
-			with self.serialMutex:
-				self.outlets.write(b'2+')
-				pass
+			GPIO.output(LIGHT_PIN, GPIO.LOW)
 			self.logger.info('Lights on')
 			self.lightsOnFlag = True
 
 	def lightsOff(self):
 		if self.lightsOnFlag:
-			with self.serialMutex:
-				self.outlets.write(b'2-')
-				pass
+			GPIO.output(LIGHT_PIN, GPIO.HIGH)
 			self.logger.info('Lights off')
 			self.lightsOnFlag = False
 
 	def pumpOn(self):
-		with self.serialMutex:
-			self.outlets.write(b'1+')
-			pass
+		GPIO.output(PUMP_PIN, GPIO.LOW)
 		self.logger.info('Pump on')
 
 	def pumpOff(self):
-		with self.serialMutex:
-			self.outlets.write(b'1-')
-			pass
+		GPIO.output(PUMP_PIN, GPIO.HIGH)
 		self.logger.info('Pump off')
 
 def pump(controls):
@@ -84,8 +82,19 @@ def lights(controls):
 			controls.lightsOff()
 		sleep(30)
 
+def fans(controls):
+	def adcToDuty(adc):
+		return adc/1023.0 * 100.0
+	channel = 1
+	mcp = mcpread.Mcp()
+	GPIO.setup(FAN_PWM_PIN, GPIO.OUT)
+	pwm = GPIO.PWM(FAN_PWM_PIN, 25000)
+	pwm.start(adcToDuty(mcp.read(2)))
+	while True:
+		pwm.ChangeDutyCycle(adcToDuty(mcp.read(2)))
+
+
 def init_alarm_pin():
-	GPIO.setmode(GPIO.BCM)
 	GPIO.setup(FLOAT_SWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 alarm_str=""
@@ -120,6 +129,8 @@ def alarm(logger):
 
 
 def main():
+	GPIO.setmode(GPIO.BCM)
+
 	#setup the logger
 	logging.basicConfig(filename="/home/pi/rpi-hydro/events.log", 
 	                    format='%(asctime)s: %(levelname)s: %(message)s', 
@@ -138,6 +149,11 @@ def main():
 	lightsThread = threading.Thread(target=lights, args=(controls,))
 	lightsThread.daemon = True
 	lightsThread.start()
+
+	#create thread to read pot and control fan speed
+	fanCtrlThread = threading.Thread(target=fans, args=(controls,))
+	fanCtrlThread.daemon = True
+	fanCtrlThread.start()
 
 	#create thread to detect alerts and send notifications
 	init_alarm_pin()
